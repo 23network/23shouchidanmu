@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 手机适配 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手持弹幕</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #000;
+            overflow: hidden;
+            height: 100vh;
+            font-family: "微软雅黑", sans-serif;
+        }
+        /* 提示文字 */
+        .tip-text{
+            width:100%;
+            color:#ffdd00;
+            text-align:center;
+            padding:4px 0;
+            font-size:14px;
+        }
+        /* 控制面板 */
+        .control-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 8px 10px 10px;
+            background: rgba(0,0,0,0.8);
+            z-index: 999;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+        }
+        #textInput {
+            width: 60%;
+            min-width: 200px;
+        }
+        /* 字号滑块样式 */
+        #fontSizeSlider {
+            width: 120px;
+            padding: 0;
+        }
+        button {
+            background: #2589ff;
+            color: #fff;
+            cursor: pointer;
+        }
+        button:active {
+            background: #0066cc;
+        }
+        label {
+            color: #fff;
+        }
+        /* 弹幕容器 */
+        .danmu-wrap {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+        #danmuText {
+            white-space: nowrap;
+            font-size: 12vw;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- 控制面板 -->
+    <div class="control-panel">
+        <div class="tip-text">修改文字或颜色后，请点击开始滚动。</div>
+        <input type="text" id="textInput" placeholder="输入弹幕文字" value="欢迎使用手持弹幕">
+        <select id="colorSelect">
+            <option value="#ffffff">白色</option>
+            <option value="#ff3333">红色</option>
+            <option value="#33ff33">绿色</option>
+            <option value="#3399ff">蓝色</option>
+            <option value="#ffff33">黄色</option>
+            <option value="#ff33ff">粉色</option>
+        </select>
+        <!-- 速度已修正：慢速=2 中速=5 快速=8 -->
+        <select id="speedSelect">
+            <option value="2">慢速</option>
+            <option value="5" selected>中速</option>
+            <option value="8">快速</option>
+        </select>
+        <!-- 循环模式选择 -->
+        <select id="loopMode">
+            <option value="-1">一直循环</option>
+            <option value="3">循环3次</option>
+            <option value="5">循环5次</option>
+            <option value="0">不循环（单次）</option>
+        </select>
+        <!-- 字号调节滑块 -->
+        <label>字号：</label>
+        <input type="range" id="fontSizeSlider" min="4" max="18" value="12" step="0.5">
+        <span id="fontSizeText" style="color:#fff;">12vw</span>
+        <button id="startBtn">开始滚动</button>
+        <button id="fullBtn">全屏模式</button>
+    </div>
+
+    <!-- 滚动弹幕 -->
+    <div class="danmu-wrap">
+        <div id="danmuText"></div>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('textInput');
+        const colorSelect = document.getElementById('colorSelect');
+        const speedSelect = document.getElementById('speedSelect');
+        const loopMode = document.getElementById('loopMode');
+        const startBtn = document.getElementById('startBtn');
+        const fullBtn = document.getElementById('fullBtn');
+        const danmuText = document.getElementById('danmuText');
+        const wrap = document.querySelector('.danmu-wrap');
+        const fontSizeSlider = document.getElementById('fontSizeSlider');
+        const fontSizeText = document.getElementById('fontSizeText');
+
+        let animationId = null;
+
+        // 停止当前所有弹幕动画
+        function stopDanmu() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+
+        // 更新弹幕配置并启动
+        function updateDanmu() {
+            stopDanmu();
+            const txt = textInput.value || "请输入文字";
+            // 修复：不再重复拼接6次，仅保留原生文字
+            danmuText.innerText = txt;
+            danmuText.style.color = colorSelect.value;
+            const sizeVal = fontSizeSlider.value;
+            danmuText.style.fontSize = `${sizeVal}vw`;
+            fontSizeText.innerText = `${sizeVal}vw`;
+            startScroll();
+        }
+
+        // 滚动核心逻辑
+        function startScroll() {
+            const maxLoop = Number(loopMode.value);
+            let loopCount = 0;
+            let x = wrap.offsetWidth;
+            const speed = Number(speedSelect.value);
+
+            function scroll() {
+                x -= speed;
+                // 完全滑出屏幕左侧 = 完成1次循环
+                if (x < -danmuText.offsetWidth) {
+                    loopCount++;
+                    // 判断停止条件
+                    if (maxLoop !== -1 && loopCount >= maxLoop) {
+                        stopDanmu();
+                        return;
+                    }
+                    x = wrap.offsetWidth;
+                }
+                danmuText.style.transform = `translateX(${x}px)`;
+                animationId = requestAnimationFrame(scroll);
+            }
+            scroll();
+        }
+
+        // 绑定事件
+        startBtn.addEventListener('click', updateDanmu);
+        textInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') updateDanmu();
+        });
+        fontSizeSlider.addEventListener('input', updateDanmu);
+        speedSelect.addEventListener('change', updateDanmu);
+        loopMode.addEventListener('change', updateDanmu);
+
+        // 全屏切换
+        fullBtn.addEventListener('click', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                document.documentElement.requestFullscreen();
+            }
+        })
+
+        // 页面初始化启动弹幕
+        updateDanmu();
+    </script>
+</body>
+</html>
